@@ -1,0 +1,18 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chibi City Dash (Web)</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+</head>
+<body>
+  <main class="app-shell">
+    <h1>Chibi City Dash</h1>
+    <p class="subtitle">8-bit web edition</p>
+    <canvas id="game" width="960" height="540" aria-label="Chibi City Dash game"></canvas>
+    <p class="help">Menu: Arrow Keys / A D + Enter | Play: Arrow Keys / A D to move, Space / W / Up to jump</p>
+  </main>
+  <script src="{{ url_for('static', filename='game.js') }}"></script>
+</body>
+</html>
