@@ -9,7 +9,7 @@ from pymongo.errors import PyMongoError
 
 app = Flask(__name__)
 
-_MONGO_URI_TEMPLATE = "mongodb+srv://sboyd1501_db_user:{password}@cluster0.03biqou.mongodb.net/?appName=Cluster0"
+_MONGO_URI_TEMPLATE = "mongodb://sboyd1501_db_user:{password}@ac-lmkibw5-shard-00-00.03biqou.mongodb.net:27017,ac-lmkibw5-shard-00-01.03biqou.mongodb.net:27017,ac-lmkibw5-shard-00-02.03biqou.mongodb.net:27017/?ssl=true&replicaSet=atlas-xdyjxl-shard-0&authSource=admin&appName=Cluster0"
 _mongo_client = None
 _scores_collection = None
 
