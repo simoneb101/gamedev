@@ -19,19 +19,31 @@ body {
 }
 
 .app-shell {
-  width: min(100vw, 1040px);
+  width: min(100vw, 1320px);
   padding: 16px;
+}
+
+.app-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 16px;
+  align-items: start;
+}
+
+.game-panel {
   text-align: center;
 }
 
 h1 {
   margin: 0;
   font-size: clamp(1.4rem, 4vw, 2.3rem);
+  text-align: center;
 }
 
 .subtitle {
   margin: 4px 0 12px;
   opacity: 0.8;
+  text-align: center;
 }
 
 #game {
@@ -46,4 +58,80 @@ h1 {
 .help {
   margin: 10px 0 0;
   font-size: 0.92rem;
+}
+
+.leaderboard-panel {
+  border: 4px solid #fff;
+  background: linear-gradient(180deg, #fff8ea 0%, #f6f8ff 100%);
+  border-radius: 10px;
+  padding: 14px;
+  text-align: left;
+  box-shadow: 0 8px 20px #213f5c22;
+}
+
+.leaderboard-panel h2 {
+  margin: 0 0 10px;
+  font-size: 1.2rem;
+}
+
+#score-form {
+  display: grid;
+  gap: 8px;
+}
+
+#score-form label {
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+#score-form input,
+#score-form button {
+  font: inherit;
+  border-radius: 8px;
+  border: 2px solid #ffffff;
+  padding: 10px 12px;
+}
+
+#score-form input {
+  background: #fff;
+}
+
+#score-form button {
+  background: var(--accent);
+  color: #1e2842;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+#score-form button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.score-status {
+  min-height: 1.2em;
+  margin: 10px 0;
+  font-size: 0.9rem;
+}
+
+.leaderboard-list {
+  margin: 0;
+  padding-left: 22px;
+  display: grid;
+  gap: 6px;
+}
+
+.leaderboard-list li {
+  font-size: 0.92rem;
+}
+
+@media (max-width: 1050px) {
+  .app-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .leaderboard-panel {
+    max-width: 700px;
+    margin: 0 auto;
+  }
 }

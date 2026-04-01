@@ -1,6 +1,12 @@
 ﻿(() => {
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d");
+  const scoreForm = document.getElementById("score-form");
+  const playerNameInput = document.getElementById("player-name");
+  const finalScoreInput = document.getElementById("final-score");
+  const submitScoreButton = document.getElementById("submit-score");
+  const scoreStatus = document.getElementById("score-status");
+  const leaderboardList = document.getElementById("leaderboard-list");
 
   const WIDTH = canvas.width;
   const HEIGHT = canvas.height;
@@ -41,6 +47,100 @@
   let selected = 0;
   let world = null;
   let lastTs = performance.now();
+  let pendingScore = null;
+  let pendingCharacter = "";
+
+  function setScoreStatus(message, isError = false) {
+    if (!scoreStatus) return;
+    scoreStatus.textContent = message;
+    scoreStatus.style.color = isError ? "#8b1e3f" : "#27324a";
+  }
+
+  function renderLeaderboard(entries) {
+    if (!leaderboardList) return;
+    leaderboardList.innerHTML = "";
+
+    if (!entries.length) {
+      const item = document.createElement("li");
+      item.textContent = "No scores yet. Be the first!";
+      leaderboardList.appendChild(item);
+      return;
+    }
+
+    entries.forEach((entry, index) => {
+      const item = document.createElement("li");
+      const charTag = entry.character ? ` (${entry.character})` : "";
+      item.textContent = `#${index + 1} ${entry.player}${charTag}: ${entry.score}`;
+      leaderboardList.appendChild(item);
+    });
+  }
+
+  async function loadLeaderboard() {
+    try {
+      const res = await fetch("/api/leaderboard?limit=10");
+      const payload = await res.json();
+      if (!res.ok) {
+        throw new Error(payload.error || "Failed to load leaderboard");
+      }
+      renderLeaderboard(payload.entries || []);
+    } catch (err) {
+      setScoreStatus(`Could not load leaderboard: ${err.message}`, true);
+    }
+  }
+
+  function queueScoreForSubmit(score, character) {
+    pendingScore = score;
+    pendingCharacter = character || "";
+    if (finalScoreInput) finalScoreInput.value = String(score);
+    if (submitScoreButton) submitScoreButton.disabled = false;
+    setScoreStatus("Run complete. Enter your name and submit your score.");
+  }
+
+  async function submitLeaderboardScore(player, score, character) {
+    const res = await fetch("/api/leaderboard", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ player, score, character }),
+    });
+
+    const payload = await res.json();
+    if (!res.ok) {
+      throw new Error(payload.error || "Failed to submit score");
+    }
+  }
+
+  if (scoreForm) {
+    scoreForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      if (pendingScore === null) {
+        setScoreStatus("Finish a run before submitting.", true);
+        return;
+      }
+
+      const player = playerNameInput ? playerNameInput.value.trim() : "";
+      if (!player) {
+        setScoreStatus("Please enter a player name.", true);
+        return;
+      }
+
+      if (submitScoreButton) submitScoreButton.disabled = true;
+      setScoreStatus("Submitting score...");
+
+      try {
+        await submitLeaderboardScore(player, pendingScore, pendingCharacter);
+        setScoreStatus(`Score submitted for ${player}!`);
+        pendingScore = null;
+        pendingCharacter = "";
+        if (finalScoreInput) finalScoreInput.value = "0";
+        await loadLeaderboard();
+      } catch (err) {
+        setScoreStatus(`Submit failed: ${err.message}`, true);
+      } finally {
+        if (submitScoreButton) submitScoreButton.disabled = pendingScore === null;
+      }
+    });
+  }
 
   class Chibi {
     constructor(palette) {
@@ -256,8 +356,10 @@
   }
 
   function endGame(reason) {
+    if (world.gameOver) return;
     world.gameOver = true;
     world.deathReason = reason;
+    queueScoreForSubmit(world.score | 0, CHARACTERS[selected].name);
   }
 
   function draw() {
@@ -519,5 +621,6 @@
   }
 
   drawMenu();
+  loadLeaderboard();
   requestAnimationFrame(loop);
 })();

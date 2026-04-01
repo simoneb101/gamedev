@@ -10,8 +10,26 @@
   <main class="app-shell">
     <h1>Chibi City Dash</h1>
     <p class="subtitle">8-bit web edition</p>
-    <canvas id="game" width="960" height="540" aria-label="Chibi City Dash game"></canvas>
-    <p class="help">Menu: Arrow Keys / A D + Enter, or swipe to choose + tap to start | Play: Arrow Keys / A D to move + Space / W / Up to jump, or swipe left/right to move + swipe up to jump</p>
+    <div class="app-grid">
+      <section class="game-panel">
+        <canvas id="game" width="960" height="540" aria-label="Chibi City Dash game"></canvas>
+        <p class="help">Menu: Arrow Keys / A D + Enter, or swipe to choose + tap to start | Play: Arrow Keys / A D to move + Space / W / Up to jump, or swipe left/right to move + swipe up to jump</p>
+      </section>
+      <aside class="leaderboard-panel" aria-label="Leaderboard">
+        <h2>Leaderboard</h2>
+        <form id="score-form" autocomplete="off">
+          <label for="player-name">Player Name</label>
+          <input id="player-name" name="player" type="text" maxlength="24" placeholder="Type your name" required />
+
+          <label for="final-score">Latest Score</label>
+          <input id="final-score" name="score" type="number" min="0" value="0" readonly />
+
+          <button id="submit-score" type="submit" disabled>Submit Latest Score</button>
+        </form>
+        <p id="score-status" class="score-status">Finish a run to unlock score submit.</p>
+        <ol id="leaderboard-list" class="leaderboard-list"></ol>
+      </aside>
+    </div>
   </main>
   <script src="{{ url_for('static', filename='game.js') }}"></script>
 </body>
