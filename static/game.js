@@ -7,6 +7,12 @@
   const submitScoreButton = document.getElementById("submit-score");
   const scoreStatus = document.getElementById("score-status");
   const leaderboardList = document.getElementById("leaderboard-list");
+  const leaderboardOverlay = document.getElementById("leaderboard-overlay");
+  const closeLeaderboardButton = document.getElementById("close-leaderboard");
+  const overlayReplayButton = document.getElementById("overlay-replay-btn");
+  const overlayMainMenuButton = document.getElementById("overlay-main-menu-btn");
+  const viewGlobalLeaderboardButton = document.getElementById("view-global-leaderboard-btn");
+  const returnMenuButton = document.getElementById("return-menu-btn");
 
   const WIDTH = canvas.width;
   const HEIGHT = canvas.height;
@@ -49,6 +55,37 @@
   let lastTs = performance.now();
   let pendingScore = null;
   let pendingCharacter = "";
+
+  function refreshUiState() {
+    if (viewGlobalLeaderboardButton) {
+      viewGlobalLeaderboardButton.classList.toggle("is-hidden", state !== "menu");
+    }
+    if (returnMenuButton) {
+      returnMenuButton.classList.toggle("is-hidden", state !== "play");
+    }
+  }
+
+  function showLeaderboardOverlay() {
+    if (!leaderboardOverlay) return;
+    leaderboardOverlay.classList.add("is-visible");
+  }
+
+  function hideLeaderboardOverlay() {
+    if (!leaderboardOverlay) return;
+    leaderboardOverlay.classList.remove("is-visible");
+  }
+
+  function goToMenu() {
+    hideLeaderboardOverlay();
+    state = "menu";
+    refreshUiState();
+  }
+
+  function startRun() {
+    resetWorld();
+    state = "play";
+    refreshUiState();
+  }
 
   function setScoreStatus(message, isError = false) {
     if (!scoreStatus) return;
@@ -94,6 +131,7 @@
     if (finalScoreInput) finalScoreInput.value = String(score);
     if (submitScoreButton) submitScoreButton.disabled = false;
     setScoreStatus("Run complete. Enter your name and submit your score.");
+    showLeaderboardOverlay();
   }
 
   async function submitLeaderboardScore(player, score, character) {
@@ -139,6 +177,36 @@
       } finally {
         if (submitScoreButton) submitScoreButton.disabled = pendingScore === null;
       }
+    });
+  }
+
+  if (closeLeaderboardButton) {
+    closeLeaderboardButton.addEventListener("click", () => {
+      hideLeaderboardOverlay();
+    });
+  }
+
+  if (overlayReplayButton) {
+    overlayReplayButton.addEventListener("click", () => {
+      startRun();
+    });
+  }
+
+  if (overlayMainMenuButton) {
+    overlayMainMenuButton.addEventListener("click", () => {
+      goToMenu();
+    });
+  }
+
+  if (viewGlobalLeaderboardButton) {
+    viewGlobalLeaderboardButton.addEventListener("click", () => {
+      window.location.href = "/leaderboard";
+    });
+  }
+
+  if (returnMenuButton) {
+    returnMenuButton.addEventListener("click", () => {
+      goToMenu();
     });
   }
 
@@ -277,6 +345,7 @@
   }
 
   function resetWorld() {
+    hideLeaderboardOverlay();
     world = {
       chibi: new Chibi(CHARACTERS[selected]),
       vehicles: [],
@@ -516,16 +585,17 @@
       else if (e.code === "ArrowUp") selected = (selected - 4 + CHARACTERS.length) % CHARACTERS.length;
       else if (e.code === "ArrowDown") selected = (selected + 4) % CHARACTERS.length;
       else if (e.code === "Enter" || e.code === "Space") {
-        resetWorld();
-        state = "play";
+        startRun();
       }
     } else if (state === "play") {
       if ((e.code === "Space" || e.code === "ArrowUp" || e.code === "KeyW") && !world.gameOver) {
         world.chibi.jump();
       } else if (world.gameOver && e.code === "Space") {
-        resetWorld();
+        startRun();
       } else if (world.gameOver && e.code === "Escape") {
-        state = "menu";
+        goToMenu();
+      } else if (!world.gameOver && e.code === "Escape") {
+        goToMenu();
       }
     }
 
@@ -595,11 +665,10 @@
           ? (selected + 4) % CHARACTERS.length
           : (selected - 4 + CHARACTERS.length) % CHARACTERS.length;
       } else if (isTap) {
-        resetWorld();
-        state = "play";
+        startRun();
       }
     } else if (state === "play" && world.gameOver && isTap) {
-      resetWorld();
+      startRun();
     }
 
     touch.active = false;
@@ -622,5 +691,6 @@
 
   drawMenu();
   loadLeaderboard();
+  refreshUiState();
   requestAnimationFrame(loop);
 })();

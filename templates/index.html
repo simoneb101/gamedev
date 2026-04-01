@@ -10,26 +10,37 @@
   <main class="app-shell">
     <h1>Chibi City Dash</h1>
     <p class="subtitle">8-bit web edition</p>
-    <div class="app-grid">
-      <section class="game-panel">
+    <section class="game-panel">
+      <div class="game-wrap">
         <canvas id="game" width="960" height="540" aria-label="Chibi City Dash game"></canvas>
-        <p class="help">Menu: Arrow Keys / A D + Enter, or swipe to choose + tap to start | Play: Arrow Keys / A D to move + Space / W / Up to jump, or swipe left/right to move + swipe up to jump</p>
-      </section>
-      <aside class="leaderboard-panel" aria-label="Leaderboard">
-        <h2>Leaderboard</h2>
-        <form id="score-form" autocomplete="off">
-          <label for="player-name">Player Name</label>
-          <input id="player-name" name="player" type="text" maxlength="24" placeholder="Type your name" required />
+        <button id="return-menu-btn" class="in-game-menu-btn is-hidden" type="button">Return To Main Menu</button>
+        <aside id="leaderboard-overlay" class="leaderboard-overlay" aria-label="Leaderboard">
+          <div class="overlay-head">
+            <h2>Leaderboard</h2>
+            <button id="close-leaderboard" class="overlay-close" type="button" aria-label="Close leaderboard">X</button>
+          </div>
+          <form id="score-form" autocomplete="off">
+            <label for="player-name">Player Name</label>
+            <input id="player-name" name="player" type="text" maxlength="24" placeholder="Type your name" required />
 
-          <label for="final-score">Latest Score</label>
-          <input id="final-score" name="score" type="number" min="0" value="0" readonly />
+            <label for="final-score">Latest Score</label>
+            <input id="final-score" name="score" type="number" min="0" value="0" readonly />
 
-          <button id="submit-score" type="submit" disabled>Submit Latest Score</button>
-        </form>
-        <p id="score-status" class="score-status">Finish a run to unlock score submit.</p>
-        <ol id="leaderboard-list" class="leaderboard-list"></ol>
-      </aside>
-    </div>
+            <button id="submit-score" type="submit" disabled>Submit Latest Score</button>
+          </form>
+          <p id="score-status" class="score-status">Finish a run to unlock score submit.</p>
+          <ol id="leaderboard-list" class="leaderboard-list"></ol>
+          <div class="overlay-actions">
+            <button id="overlay-replay-btn" type="button">Replay</button>
+            <button id="overlay-main-menu-btn" type="button">Main Menu</button>
+          </div>
+        </aside>
+      </div>
+      <div class="menu-actions">
+        <button id="view-global-leaderboard-btn" type="button">View Global Leaderboard</button>
+      </div>
+      <p class="help">Menu: Arrow Keys / A D + Enter, or swipe to choose + tap to start | Play: Arrow Keys / A D to move + Space / W / Up to jump, or swipe left/right to move + swipe up to jump</p>
+    </section>
   </main>
   <script src="{{ url_for('static', filename='game.js') }}"></script>
 </body>

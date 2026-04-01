@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ChibiRun Global Leaderboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+</head>
+<body>
+  <main class="app-shell leaderboard-page">
+    <h1>Global Leaderboard</h1>
+    <p class="subtitle">Recent scores from all players</p>
+
+    <section class="leaderboard-page-panel">
+      <div class="leaderboard-page-head">
+        <button id="back-main-menu-btn" type="button">Back To Main Menu</button>
+        <button id="refresh-recent-btn" type="button">Refresh</button>
+      </div>
+      <p id="recent-status" class="score-status">Loading recent scores...</p>
+      <ol id="recent-list" class="leaderboard-list"></ol>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const list = document.getElementById("recent-list");
+      const status = document.getElementById("recent-status");
+      const refreshBtn = document.getElementById("refresh-recent-btn");
+      const backBtn = document.getElementById("back-main-menu-btn");
+
+      function setStatus(message, isError = false) {
+        status.textContent = message;
+        status.style.color = isError ? "#8b1e3f" : "#27324a";
+      }
+
+      function render(entries) {
+        list.innerHTML = "";
+        if (!entries.length) {
+          const item = document.createElement("li");
+          item.textContent = "No scores posted yet.";
+          list.appendChild(item);
+          return;
+        }
+
+        entries.forEach((entry) => {
+          const item = document.createElement("li");
+          const character = entry.character ? ` (${entry.character})` : "";
+          const when = entry.created_at ? ` - ${new Date(entry.created_at).toLocaleString()}` : "";
+          item.textContent = `${entry.player}${character}: ${entry.score}${when}`;
+          list.appendChild(item);
+        });
+      }
+
+      async function loadRecent() {
+        setStatus("Loading recent scores...");
+        try {
+          const res = await fetch("/api/leaderboard/recent?limit=50");
+          const payload = await res.json();
+          if (!res.ok) {
+            throw new Error(payload.error || "Failed to load recent scores");
+          }
+          render(payload.entries || []);
+          setStatus("Showing most recent global scores.");
+        } catch (err) {
+          setStatus(`Could not load recent scores: ${err.message}`, true);
+        }
+      }
+
+      refreshBtn.addEventListener("click", loadRecent);
+      backBtn.addEventListener("click", () => {
+        window.location.href = "/";
+      });
+
+      loadRecent();
+    })();
+  </script>
+</body>
+</html>

@@ -19,15 +19,8 @@ body {
 }
 
 .app-shell {
-  width: min(100vw, 1320px);
+  width: min(100vw, 1040px);
   padding: 16px;
-}
-
-.app-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
-  gap: 16px;
-  align-items: start;
 }
 
 .game-panel {
@@ -50,9 +43,18 @@ h1 {
   width: 100%;
   height: auto;
   border: 4px solid #fff;
+  border-radius: 12px;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   background: #9fd8ff;
+}
+
+.game-wrap {
+  position: relative;
+}
+
+.is-hidden {
+  display: none !important;
 }
 
 .help {
@@ -60,18 +62,72 @@ h1 {
   font-size: 0.92rem;
 }
 
-.leaderboard-panel {
-  border: 4px solid #fff;
-  background: linear-gradient(180deg, #fff8ea 0%, #f6f8ff 100%);
+.in-game-menu-btn {
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  z-index: 15;
+  border: 2px solid #fff;
+  background: #ffe2a7;
+  color: #2b2f4a;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.leaderboard-overlay {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: min(360px, calc(100% - 28px));
+  max-height: calc(100% - 28px);
+  overflow: auto;
+  border: 2px solid #fff;
+  background: linear-gradient(180deg, #fff8eaf2 0%, #f6f8fff0 100%);
+  backdrop-filter: blur(3px);
   border-radius: 10px;
   padding: 14px;
   text-align: left;
-  box-shadow: 0 8px 20px #213f5c22;
+  box-shadow: 0 16px 32px #1f2f4f5a;
+  z-index: 20;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-8px) scale(0.98);
+  transition: opacity 160ms ease, transform 160ms ease, visibility 0ms linear 160ms;
+  pointer-events: none;
 }
 
-.leaderboard-panel h2 {
-  margin: 0 0 10px;
-  font-size: 1.2rem;
+.leaderboard-overlay.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+  transition: opacity 160ms ease, transform 160ms ease;
+  pointer-events: auto;
+}
+
+.overlay-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.overlay-head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.overlay-close {
+  border: 2px solid #fff;
+  background: #f6a57e;
+  color: #1e2842;
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 #score-form {
@@ -103,6 +159,11 @@ h1 {
   cursor: pointer;
 }
 
+#overlay-replay-btn,
+#overlay-main-menu-btn {
+  background: #e7ecff;
+}
+
 #score-form button:disabled {
   opacity: 0.55;
   cursor: not-allowed;
@@ -125,13 +186,70 @@ h1 {
   font-size: 0.92rem;
 }
 
+.overlay-actions {
+  margin-top: 12px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.overlay-actions button,
+.menu-actions button {
+  font: inherit;
+  border-radius: 8px;
+  border: 2px solid #fff;
+  padding: 10px 12px;
+  font-weight: 700;
+  cursor: pointer;
+  background: #d7e8ff;
+  color: #1e2842;
+}
+
+.menu-actions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+}
+
+.leaderboard-page {
+  max-width: 900px;
+}
+
+.leaderboard-page-panel {
+  border: 4px solid #fff;
+  background: linear-gradient(180deg, #fff8ea 0%, #f6f8ff 100%);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 10px 24px #213f5c28;
+}
+
+.leaderboard-page-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.leaderboard-page-head button {
+  font: inherit;
+  border-radius: 8px;
+  border: 2px solid #fff;
+  padding: 10px 12px;
+  font-weight: 700;
+  cursor: pointer;
+  background: #d7e8ff;
+  color: #1e2842;
+}
+
 @media (max-width: 1050px) {
-  .app-grid {
-    grid-template-columns: 1fr;
+  .leaderboard-overlay {
+    top: 10px;
+    right: 10px;
+    width: min(360px, calc(100% - 20px));
+    max-height: calc(100% - 20px);
   }
 
-  .leaderboard-panel {
-    max-width: 700px;
-    margin: 0 auto;
+  .leaderboard-page-head {
+    flex-direction: column;
   }
 }
