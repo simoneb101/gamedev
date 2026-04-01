@@ -9,19 +9,9 @@ from pymongo.errors import PyMongoError
 
 app = Flask(__name__)
 
-_MONGO_URI_TEMPLATE = "mongodb://sboyd1501_db_user:{password}@ac-lmkibw5-shard-00-00.03biqou.mongodb.net:27017,ac-lmkibw5-shard-00-01.03biqou.mongodb.net:27017,ac-lmkibw5-shard-00-02.03biqou.mongodb.net:27017/?ssl=true&replicaSet=atlas-xdyjxl-shard-0&authSource=admin&appName=Cluster0"
+_MONGO_URI = os.environ.get("MONGODB_URI", "")
 _mongo_client = None
 _scores_collection = None
-
-
-def _build_mongo_uri():
-    mongo_uri = os.environ.get("MONGODB_URI")
-    if mongo_uri:
-        return mongo_uri
-    db_pass = os.environ.get("db_pass") or os.environ.get("DB_PASS")
-    if not db_pass:
-        raise RuntimeError("Missing MongoDB credentials. Set MONGODB_URI or db_pass.")
-    return _MONGO_URI_TEMPLATE.format(password=quote_plus(db_pass))
 
 
 def _is_debug_enabled():
@@ -43,7 +33,7 @@ def _get_scores_collection():
 
     insecure_tls = os.environ.get("MONGO_TLS_INSECURE", "0") == "1"
     _mongo_client = MongoClient(
-        _build_mongo_uri(),
+        _MONGO_URI,
         serverSelectionTimeoutMS=10000,
         connectTimeoutMS=10000,
         socketTimeoutMS=10000,
