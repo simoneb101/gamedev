@@ -2,6 +2,7 @@ import os
 from datetime import datetime, timezone
 from urllib.parse import quote_plus
 
+import certifi
 from flask import Flask, jsonify, render_template, request
 from pymongo import DESCENDING, ASCENDING, MongoClient
 from pymongo.errors import PyMongoError
@@ -27,7 +28,12 @@ def _get_scores_collection():
     if _scores_collection is not None:
         return _scores_collection
 
-    _mongo_client = MongoClient(_build_mongo_uri(), serverSelectionTimeoutMS=5000)
+    _mongo_client = MongoClient(
+        _build_mongo_uri(),
+        serverSelectionTimeoutMS=5000,
+        tls=True,
+        tlsCAFile=certifi.where(),
+    )
     db = _mongo_client["chibirun"]
     _scores_collection = db["leaderboard_scores"]
     _scores_collection.create_index([("score", DESCENDING), ("created_at", ASCENDING)])
