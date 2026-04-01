@@ -28,6 +28,15 @@
   ];
 
   const keys = new Set();
+  const touch = {
+    active: false,
+    startX: 0,
+    startY: 0,
+    x: 0,
+    y: 0,
+    moveDir: 0,
+    swipeUpTriggered: false,
+  };
   let state = "menu";
   let selected = 0;
   let world = null;
@@ -191,6 +200,7 @@
       let moveDir = 0;
       if (pressed("ArrowLeft") || pressed("KeyA")) moveDir -= 1;
       if (pressed("ArrowRight") || pressed("KeyD")) moveDir += 1;
+      if (moveDir === 0 && touch.active) moveDir = touch.moveDir;
       world.chibi.update(moveDir);
 
       world.cityScroll += world.speed;
@@ -421,6 +431,84 @@
   });
 
   window.addEventListener("keyup", (e) => keys.delete(e.code));
+
+  function onTouchStart(e) {
+    const t = e.changedTouches[0];
+    touch.active = true;
+    touch.startX = t.clientX;
+    touch.startY = t.clientY;
+    touch.x = t.clientX;
+    touch.y = t.clientY;
+    touch.moveDir = 0;
+    touch.swipeUpTriggered = false;
+    e.preventDefault();
+  }
+
+  function onTouchMove(e) {
+    if (!touch.active) return;
+    const t = e.changedTouches[0];
+    touch.x = t.clientX;
+    touch.y = t.clientY;
+
+    const dx = touch.x - touch.startX;
+    const dy = touch.y - touch.startY;
+
+    if (Math.abs(dx) > 24 && Math.abs(dx) > Math.abs(dy) * 0.8) {
+      touch.moveDir = dx > 0 ? 1 : -1;
+    } else {
+      touch.moveDir = 0;
+    }
+
+    if (
+      state === "play"
+      && !world.gameOver
+      && !touch.swipeUpTriggered
+      && dy < -42
+      && Math.abs(dy) > Math.abs(dx) * 0.9
+    ) {
+      world.chibi.jump();
+      touch.swipeUpTriggered = true;
+    }
+
+    e.preventDefault();
+  }
+
+  function onTouchEnd(e) {
+    const t = e.changedTouches[0];
+    const endX = t.clientX;
+    const endY = t.clientY;
+    const dx = endX - touch.startX;
+    const dy = endY - touch.startY;
+    const absX = Math.abs(dx);
+    const absY = Math.abs(dy);
+    const isTap = absX < 16 && absY < 16;
+
+    if (state === "menu") {
+      if (absX > absY && absX > 36) {
+        selected = dx > 0
+          ? (selected + 1) % CHARACTERS.length
+          : (selected - 1 + CHARACTERS.length) % CHARACTERS.length;
+      } else if (absY >= absX && absY > 40) {
+        selected = dy > 0
+          ? (selected + 4) % CHARACTERS.length
+          : (selected - 4 + CHARACTERS.length) % CHARACTERS.length;
+      } else if (isTap) {
+        resetWorld();
+        state = "play";
+      }
+    } else if (state === "play" && world.gameOver && isTap) {
+      resetWorld();
+    }
+
+    touch.active = false;
+    touch.moveDir = 0;
+    e.preventDefault();
+  }
+
+  canvas.addEventListener("touchstart", onTouchStart, { passive: false });
+  canvas.addEventListener("touchmove", onTouchMove, { passive: false });
+  canvas.addEventListener("touchend", onTouchEnd, { passive: false });
+  canvas.addEventListener("touchcancel", onTouchEnd, { passive: false });
 
   function loop(ts) {
     const dt = Math.min(2.5, (ts - lastTs) / 16.67);
