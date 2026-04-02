@@ -9,9 +9,26 @@ from pymongo.errors import PyMongoError
 
 app = Flask(__name__)
 
-_MONGO_URI = os.environ.get("MONGODB_URI", "")
+_MONGO_URI_TEMPLATE = "mongodb+srv://sboyd1501_db_user:{password}@cluster0.03biqou.mongodb.net/chibirun?retryWrites=true&w=majority&appName=Cluster0"
+_MONGO_URI_ENV_KEYS = ("MONGODB_URI", "MONGO_URI", "MONGODB_URL", "DATABASE_URL")
 _mongo_client = None
 _scores_collection = None
+
+
+def _build_mongo_uri():
+    for env_key in _MONGO_URI_ENV_KEYS:
+        mongo_uri = os.environ.get(env_key, "").strip()
+        if mongo_uri:
+            return mongo_uri
+
+    db_pass = os.environ.get("db_pass") or os.environ.get("DB_PASS")
+    if not db_pass:
+        raise RuntimeError(
+            "Missing MongoDB credentials. Set one of "
+            f"{', '.join(_MONGO_URI_ENV_KEYS)} or db_pass/DB_PASS."
+        )
+
+    return _MONGO_URI_TEMPLATE.format(password=quote_plus(db_pass))
 
 
 def _is_debug_enabled():
@@ -19,6 +36,7 @@ def _is_debug_enabled():
 
 
 def _database_error_response(exc):
+    app.logger.error("MongoDB unavailable: %s", exc, exc_info=True)
     if _is_debug_enabled():
         return jsonify({"error": f"Database unavailable: {exc}"}), 500
     return jsonify({"error": "Database unavailable. Check MongoDB URI, Atlas network access, and TLS settings."}), 500
@@ -32,16 +50,26 @@ def _get_scores_collection():
         return _scores_collection
 
     insecure_tls = os.environ.get("MONGO_TLS_INSECURE", "0") == "1"
-    _mongo_client = MongoClient(
-        _MONGO_URI,
-        serverSelectionTimeoutMS=10000,
-        connectTimeoutMS=10000,
-        socketTimeoutMS=10000,
-        tls=True,
-        tlsCAFile=certifi.where(),
-        tlsAllowInvalidCertificates=insecure_tls,
-        tlsAllowInvalidHostnames=insecure_tls,
-    )
+    use_certifi_ca = os.environ.get("MONGO_USE_CERTIFI_CA", "0") == "1"
+    mongo_uri = _build_mongo_uri()
+    mongo_kwargs = {
+        "serverSelectionTimeoutMS": 10000,
+        "connectTimeoutMS": 10000,
+        "socketTimeoutMS": 10000,
+    }
+
+    # Default: rely on SRV URI defaults and system TLS handling.
+    # Optional toggles are kept for controlled troubleshooting.
+    if use_certifi_ca:
+        mongo_kwargs["tls"] = True
+        mongo_kwargs["tlsCAFile"] = certifi.where()
+
+    if insecure_tls:
+        mongo_kwargs["tls"] = True
+        mongo_kwargs["tlsAllowInvalidCertificates"] = True
+        mongo_kwargs["tlsAllowInvalidHostnames"] = True
+
+    _mongo_client = MongoClient(mongo_uri, **mongo_kwargs)
     _mongo_client.admin.command("ping")
     db = _mongo_client["chibirun"]
     _scores_collection = db["leaderboard_scores"]
