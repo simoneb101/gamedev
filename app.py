@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from urllib.parse import quote_plus
 
 import certifi
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, send_from_directory
 from pymongo import DESCENDING, ASCENDING, MongoClient
 from pymongo.errors import PyMongoError
 
@@ -104,6 +104,11 @@ def index():
 @app.route("/leaderboard")
 def leaderboard_page():
     return render_template("leaderboard.html")
+
+
+@app.route("/assets/<path:filename>")
+def assets(filename):
+    return send_from_directory("assets", filename)
 
 
 @app.route("/api/health/db", methods=["GET"])

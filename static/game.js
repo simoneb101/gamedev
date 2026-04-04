@@ -13,6 +13,26 @@
   const overlayMainMenuButton = document.getElementById("overlay-main-menu-btn");
   const viewGlobalLeaderboardButton = document.getElementById("view-global-leaderboard-btn");
   const returnMenuButton = document.getElementById("return-menu-btn");
+  const MUSIC_FILES = [
+    "420.ogg",
+    "After.ogg",
+    "Evening Mood.ogg",
+    "Homework.ogg",
+    "Morning Walk.ogg",
+  ];
+  const MUSIC_INTERVAL_MIN_MS = 60_000;
+  const MUSIC_INTERVAL_MAX_MS = 120_000;
+  const music = {
+    unlocked: false,
+    started: false,
+    isSwitching: false,
+    queue: [],
+    timerId: null,
+    currentFile: "",
+    audio: new Audio(),
+  };
+  music.audio.preload = "auto";
+  music.audio.volume = 0.35;
 
   const WIDTH = canvas.width;
   const HEIGHT = canvas.height;
@@ -56,6 +76,99 @@
   let pendingScore = null;
   let pendingCharacter = "";
 
+  function buildMusicUrl(fileName) {
+    return `/assets/music/LOFI/${encodeURIComponent(fileName)}`;
+  }
+
+  function shuffleList(list) {
+    for (let i = list.length - 1; i > 0; i--) {
+      const j = randInt(0, i);
+      [list[i], list[j]] = [list[j], list[i]];
+    }
+    return list;
+  }
+
+  function refillMusicQueue() {
+    const shuffled = shuffleList([...MUSIC_FILES]);
+
+    if (music.currentFile && shuffled.length > 1 && shuffled[0] === music.currentFile) {
+      [shuffled[0], shuffled[1]] = [shuffled[1], shuffled[0]];
+    }
+
+    music.queue.push(...shuffled);
+  }
+
+  function popNextTrack() {
+    if (!music.queue.length) refillMusicQueue();
+    const nextFile = music.queue.shift();
+    music.currentFile = nextFile || "";
+    return nextFile;
+  }
+
+  function clearMusicTimer() {
+    if (music.timerId !== null) {
+      clearTimeout(music.timerId);
+      music.timerId = null;
+    }
+  }
+
+  function scheduleMusicSwitch() {
+    clearMusicTimer();
+    const delayMs = randInt(MUSIC_INTERVAL_MIN_MS, MUSIC_INTERVAL_MAX_MS);
+    music.timerId = window.setTimeout(() => {
+      playNextTrack();
+    }, delayMs);
+  }
+
+  async function playNextTrack() {
+    if (!music.unlocked || music.isSwitching) return;
+    music.isSwitching = true;
+
+    clearMusicTimer();
+    const nextFile = popNextTrack();
+    if (!nextFile) {
+      music.isSwitching = false;
+      return;
+    }
+
+    try {
+      music.audio.src = buildMusicUrl(nextFile);
+      await music.audio.play();
+      music.started = true;
+      scheduleMusicSwitch();
+    } catch (err) {
+      // Keep trying through the playlist if one file cannot play.
+      window.setTimeout(() => {
+        playNextTrack();
+      }, 1000);
+    } finally {
+      music.isSwitching = false;
+    }
+  }
+
+  function activateMusic() {
+    music.unlocked = true;
+
+    if (!music.started && !music.isSwitching) {
+      playNextTrack();
+      return;
+    }
+
+    if (music.audio.paused) {
+      music.audio.play().catch(() => {});
+    }
+  }
+
+  music.audio.addEventListener("ended", () => {
+    playNextTrack();
+  });
+
+  music.audio.addEventListener("error", () => {
+    window.setTimeout(() => {
+      playNextTrack();
+    }, 1000);
+  });
+
   function refreshUiState() {
     if (viewGlobalLeaderboardButton) {
       viewGlobalLeaderboardButton.classList.toggle("is-hidden", state !== "menu");
@@ -76,12 +189,14 @@
   }
 
   function goToMenu() {
+    activateMusic();
     hideLeaderboardOverlay();
     state = "menu";
     refreshUiState();
   }
 
   function startRun() {
+    activateMusic();
     resetWorld();
     state = "play";
     refreshUiState();
@@ -577,6 +692,7 @@
   function randFloat(min, max) { return Math.random() * (max - min) + min; }
 
   window.addEventListener("keydown", (e) => {
+    activateMusic();
     keys.add(e.code);
 
     if (state === "menu") {
@@ -605,6 +721,7 @@
   window.addEventListener("keyup", (e) => keys.delete(e.code));
 
   function onTouchStart(e) {
+    activateMusic();
     const t = e.changedTouches[0];
     touch.active = true;
     touch.startX = t.clientX;
@@ -675,6 +792,8 @@
     touch.moveDir = 0;
     e.preventDefault();
   }
+
+  window.addEventListener("pointerdown", activateMusic, { passive: true });
 
   canvas.addEventListener("touchstart", onTouchStart, { passive: false });
   canvas.addEventListener("touchmove", onTouchMove, { passive: false });
