@@ -303,13 +303,27 @@ def draw_text(surf, text, size, color, x, y):
     surf.blit(font.render(text, True, color), (x, y))
 
 
-def draw_menu(screen, assets_list, selected):
+def draw_main_menu(screen):
+    draw_gradient_bg(screen)
+    draw_text(screen, "CHIBI CITY DASH", 62, (54, 70, 110), 210, 86)
+    draw_text(screen, "8-bit runner", 28, (74, 86, 126), 392, 150)
+
+    panel = pygame.Rect(230, 206, 500, 176)
+    pygame.draw.rect(screen, (245, 250, 255), panel)
+    pygame.draw.rect(screen, (255, 255, 255), panel, 4)
+
+    draw_text(screen, "START GAME", 54, (54, 70, 110), 300, 275)
+    draw_text(screen, "Press ENTER or SPACE", 26, (74, 86, 126), 332, 328)
+
+
+def draw_character_menu(screen, assets_list, selected):
     draw_gradient_bg(screen)
     draw_text(screen, "CHIBI CITY DASH", 56, (54, 70, 110), 225, 42)
-    draw_text(screen, "Choose your 8-bit runner", 28, (74, 86, 126), 305, 100)
+    draw_text(screen, "Character Select", 36, (74, 86, 126), 336, 92)
+    draw_text(screen, "Choose your 8-bit runner", 26, (74, 86, 126), 306, 132)
 
     start_x = 120
-    start_y = 165
+    start_y = 180
     card_w = 180
     card_h = 150
     cols = 4
@@ -334,7 +348,8 @@ def draw_menu(screen, assets_list, selected):
         draw_text(screen, f"{idx + 1}. {assets['name']}", 20, (58, 66, 88), x + 36, y + 108)
 
     draw_text(screen, "Use Arrow Keys or A/D to choose", 24, (66, 75, 105), 292, 486)
-    draw_text(screen, "Press ENTER or SPACE to start", 24, (66, 75, 105), 292, 514)
+    draw_text(screen, "Press ENTER or SPACE to start run", 24, (66, 75, 105), 266, 514)
+    draw_text(screen, "Press ESC for main menu", 20, (66, 75, 105), 360, 44)
 
 
 def reset_game(selected_assets):
@@ -354,6 +369,10 @@ def reset_game(selected_assets):
     }
 
 
+def start_game():
+    return "character_menu"
+
+
 def main():
     pygame.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -363,7 +382,7 @@ def main():
     assets_list = [generate_chibi_assets(palette) for palette in CHARACTER_PALETTES]
     city_layer = generate_city_layer(WIDTH, HEIGHT)
 
-    game_state = "menu"
+    game_state = "main_menu"
     selected_idx = 0
     world = reset_game(assets_list[selected_idx])
 
@@ -376,7 +395,11 @@ def main():
                 sys.exit()
 
             if event.type == pygame.KEYDOWN:
-                if game_state == "menu":
+                if game_state == "main_menu":
+                    if event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                        game_state = start_game()
+
+                elif game_state == "character_menu":
                     if event.key in (pygame.K_RIGHT, pygame.K_d):
                         selected_idx = (selected_idx + 1) % len(assets_list)
                     elif event.key in (pygame.K_LEFT, pygame.K_a):
@@ -388,6 +411,8 @@ def main():
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                         world = reset_game(assets_list[selected_idx])
                         game_state = "play"
+                    elif event.key == pygame.K_ESCAPE:
+                        game_state = "main_menu"
 
                 elif game_state == "play":
                     if event.key in (pygame.K_SPACE, pygame.K_UP, pygame.K_w):
@@ -396,10 +421,15 @@ def main():
                         else:
                             world["chibi"].jump()
                     elif world["game_over"] and event.key == pygame.K_ESCAPE:
-                        game_state = "menu"
+                        game_state = "main_menu"
 
-        if game_state == "menu":
-            draw_menu(screen, assets_list, selected_idx)
+        if game_state == "main_menu":
+            draw_main_menu(screen)
+            pygame.display.flip()
+            continue
+
+        if game_state == "character_menu":
+            draw_character_menu(screen, assets_list, selected_idx)
             pygame.display.flip()
             continue
 

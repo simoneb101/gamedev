@@ -75,6 +75,7 @@ def _get_scores_collection():
     _scores_collection = db["leaderboard_scores"]
     _scores_collection.create_index([("score", DESCENDING), ("created_at", ASCENDING)])
     _scores_collection.create_index([("created_at", DESCENDING)])
+    _scores_collection.create_index([("player", ASCENDING), ("score", DESCENDING), ("created_at", DESCENDING)])
     return _scores_collection
 
 
@@ -94,6 +95,27 @@ def _serialize_entry(doc):
         "character": doc.get("character", ""),
         "created_at": created_at.isoformat() if created_at else None,
     }
+
+
+def _fetch_best_scores(limit):
+    # Keep one leaderboard row per player: highest score wins, and the newest
+    # submission wins ties at the same high score.
+    pipeline = [
+        {"$sort": {"player": 1, "score": -1, "created_at": -1}},
+        {
+            "$group": {
+                "_id": "$player",
+                "player": {"$first": "$player"},
+                "score": {"$first": "$score"},
+                "character": {"$first": "$character"},
+                "created_at": {"$first": "$created_at"},
+            }
+        },
+        {"$sort": {"score": -1, "created_at": -1, "player": 1}},
+        {"$limit": limit},
+    ]
+    docs = _get_scores_collection().aggregate(pipeline)
+    return [_serialize_entry(doc) for doc in docs]
 
 
 @app.route("/")
@@ -127,13 +149,7 @@ def get_leaderboard():
         return error
 
     try:
-        docs = (
-            _get_scores_collection()
-            .find({}, {"_id": 0, "player": 1, "score": 1, "character": 1, "created_at": 1})
-            .sort([("score", DESCENDING), ("created_at", ASCENDING)])
-            .limit(limit)
-        )
-        leaderboard = [_serialize_entry(doc) for doc in docs]
+        leaderboard = _fetch_best_scores(limit)
         return jsonify({"entries": leaderboard}), 200
     except (RuntimeError, PyMongoError) as exc:
         return _database_error_response(exc)
@@ -146,14 +162,8 @@ def get_recent_scores():
         return error
 
     try:
-        docs = (
-            _get_scores_collection()
-            .find({}, {"_id": 0, "player": 1, "score": 1, "character": 1, "created_at": 1})
-            .sort([("created_at", DESCENDING)])
-            .limit(limit)
-        )
-        recent_scores = [_serialize_entry(doc) for doc in docs]
-        return jsonify({"entries": recent_scores}), 200
+        leaderboard = _fetch_best_scores(limit)
+        return jsonify({"entries": leaderboard}), 200
     except (RuntimeError, PyMongoError) as exc:
         return _database_error_response(exc)
 

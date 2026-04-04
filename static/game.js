@@ -20,14 +20,11 @@
     "Homework.ogg",
     "Morning Walk.ogg",
   ];
-  const MUSIC_INTERVAL_MIN_MS = 60_000;
-  const MUSIC_INTERVAL_MAX_MS = 120_000;
   const music = {
     unlocked: false,
     started: false,
     isSwitching: false,
     queue: [],
-    timerId: null,
     currentFile: "",
     audio: new Audio(),
   };
@@ -69,7 +66,10 @@
     moveDir: 0,
     swipeUpTriggered: false,
   };
-  let state = "menu";
+  const STATE_MAIN_MENU = "main_menu";
+  const STATE_CHARACTER_SELECT = "character_select";
+  const STATE_PLAY = "play";
+  let state = STATE_MAIN_MENU;
   let selected = 0;
   let world = null;
   let lastTs = performance.now();
@@ -105,26 +105,10 @@
     return nextFile;
   }
 
-  function clearMusicTimer() {
-    if (music.timerId !== null) {
-      clearTimeout(music.timerId);
-      music.timerId = null;
-    }
-  }
-
-  function scheduleMusicSwitch() {
-    clearMusicTimer();
-    const delayMs = randInt(MUSIC_INTERVAL_MIN_MS, MUSIC_INTERVAL_MAX_MS);
-    music.timerId = window.setTimeout(() => {
-      playNextTrack();
-    }, delayMs);
-  }
-
   async function playNextTrack() {
     if (!music.unlocked || music.isSwitching) return;
     music.isSwitching = true;
 
-    clearMusicTimer();
     const nextFile = popNextTrack();
     if (!nextFile) {
       music.isSwitching = false;
@@ -135,7 +119,6 @@
       music.audio.src = buildMusicUrl(nextFile);
       await music.audio.play();
       music.started = true;
-      scheduleMusicSwitch();
     } catch (err) {
       // Keep trying through the playlist if one file cannot play.
       window.setTimeout(() => {
@@ -163,6 +146,12 @@
     playNextTrack();
   });
 
+  music.audio.addEventListener("pause", () => {
+    if (music.unlocked && !music.isSwitching && !document.hidden) {
+      music.audio.play().catch(() => {});
+    }
+  });
+
   music.audio.addEventListener("error", () => {
     window.setTimeout(() => {
       playNextTrack();
@@ -171,10 +160,10 @@
 
   function refreshUiState() {
     if (viewGlobalLeaderboardButton) {
-      viewGlobalLeaderboardButton.classList.toggle("is-hidden", state !== "menu");
+      viewGlobalLeaderboardButton.classList.toggle("is-hidden", state !== STATE_MAIN_MENU);
     }
     if (returnMenuButton) {
-      returnMenuButton.classList.toggle("is-hidden", state !== "play");
+      returnMenuButton.classList.toggle("is-hidden", state !== STATE_PLAY);
     }
   }
 
@@ -191,14 +180,21 @@
   function goToMenu() {
     activateMusic();
     hideLeaderboardOverlay();
-    state = "menu";
+    state = STATE_MAIN_MENU;
+    refreshUiState();
+  }
+
+  function startGame() {
+    activateMusic();
+    hideLeaderboardOverlay();
+    state = STATE_CHARACTER_SELECT;
     refreshUiState();
   }
 
   function startRun() {
     activateMusic();
     resetWorld();
-    state = "play";
+    state = STATE_PLAY;
     refreshUiState();
   }
 
@@ -229,7 +225,7 @@
 
   async function loadLeaderboard() {
     try {
-      const res = await fetch("/api/leaderboard?limit=10");
+      const res = await fetch("/api/leaderboard?limit=10", { cache: "no-store" });
       const payload = await res.json();
       if (!res.ok) {
         throw new Error(payload.error || "Failed to load leaderboard");
@@ -478,7 +474,7 @@
   }
 
   function update(dt) {
-    if (state !== "play") return;
+    if (state !== STATE_PLAY) return;
 
     if (!world.gameOver) {
       let moveDir = 0;
@@ -547,8 +543,13 @@
   }
 
   function draw() {
-    if (state === "menu") {
-      drawMenu();
+    if (state === STATE_MAIN_MENU) {
+      drawMainMenu();
+      return;
+    }
+
+    if (state === STATE_CHARACTER_SELECT) {
+      drawCharacterSelect();
       return;
     }
 
@@ -575,13 +576,31 @@
     }
   }
 
-  function drawMenu() {
+  function drawMainMenu() {
+    drawBackground();
+    text("CHIBI CITY DASH", 220, 90, "#36466e", 58);
+    text("8-bit web edition", 330, 140, "#4c5d84", 26);
+
+    const panelX = 230;
+    const panelY = 200;
+    const panelW = 500;
+    const panelH = 170;
+    fillRect(panelX, panelY, panelW, panelH, "#f5faff");
+    strokeRect(panelX, panelY, panelW, panelH, "#ffffff", 4);
+
+    text("Start Game", 380, 275, "#2f3d62", 46);
+    text("Press ENTER or SPACE", 338, 320, "#445a7d", 22);
+    text("Tap anywhere to continue", 335, 350, "#445a7d", 20);
+  }
+
+  function drawCharacterSelect() {
     drawBackground();
     text("CHIBI CITY DASH", 220, 70, "#36466e", 56);
-    text("Choose your 8-bit runner", 300, 116, "#4c5d84", 26);
+    text("Character Select", 350, 110, "#4c5d84", 32);
+    text("Choose your 8-bit runner", 300, 140, "#4c5d84", 24);
 
     const startX = 120;
-    const startY = 165;
+    const startY = 180;
     const cardW = 180;
     const cardH = 150;
     const cols = 4;
@@ -600,7 +619,8 @@
     });
 
     text("Arrow Keys / A D to choose", 300, 500, "#445a7d", 24);
-    text("Enter or Space to start", 320, 528, "#445a7d", 24);
+    text("Enter or Space to start run", 304, 528, "#445a7d", 24);
+    text("Esc for main menu", 354, 54, "#445a7d", 18);
   }
 
   function drawBackground() {
@@ -695,15 +715,16 @@
     activateMusic();
     keys.add(e.code);
 
-    if (state === "menu") {
+    if (state === STATE_MAIN_MENU) {
+      if (e.code === "Enter" || e.code === "Space") startGame();
+    } else if (state === STATE_CHARACTER_SELECT) {
       if (e.code === "ArrowRight" || e.code === "KeyD") selected = (selected + 1) % CHARACTERS.length;
       else if (e.code === "ArrowLeft" || e.code === "KeyA") selected = (selected - 1 + CHARACTERS.length) % CHARACTERS.length;
       else if (e.code === "ArrowUp") selected = (selected - 4 + CHARACTERS.length) % CHARACTERS.length;
       else if (e.code === "ArrowDown") selected = (selected + 4) % CHARACTERS.length;
-      else if (e.code === "Enter" || e.code === "Space") {
-        startRun();
-      }
-    } else if (state === "play") {
+      else if (e.code === "Enter" || e.code === "Space") startRun();
+      else if (e.code === "Escape") goToMenu();
+    } else if (state === STATE_PLAY) {
       if ((e.code === "Space" || e.code === "ArrowUp" || e.code === "KeyW") && !world.gameOver) {
         world.chibi.jump();
       } else if (world.gameOver && e.code === "Space") {
@@ -715,7 +736,7 @@
       }
     }
 
-    if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space"].includes(e.code)) e.preventDefault();
+    if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space", "Enter"].includes(e.code)) e.preventDefault();
   });
 
   window.addEventListener("keyup", (e) => keys.delete(e.code));
@@ -749,7 +770,7 @@
     }
 
     if (
-      state === "play"
+      state === STATE_PLAY
       && !world.gameOver
       && !touch.swipeUpTriggered
       && dy < -42
@@ -772,7 +793,9 @@
     const absY = Math.abs(dy);
     const isTap = absX < 16 && absY < 16;
 
-    if (state === "menu") {
+    if (state === STATE_MAIN_MENU) {
+      if (isTap) startGame();
+    } else if (state === STATE_CHARACTER_SELECT) {
       if (absX > absY && absX > 36) {
         selected = dx > 0
           ? (selected + 1) % CHARACTERS.length
@@ -784,7 +807,7 @@
       } else if (isTap) {
         startRun();
       }
-    } else if (state === "play" && world.gameOver && isTap) {
+    } else if (state === STATE_PLAY && world.gameOver && isTap) {
       startRun();
     }
 
@@ -794,6 +817,10 @@
   }
 
   window.addEventListener("pointerdown", activateMusic, { passive: true });
+  window.addEventListener("focus", activateMusic);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) activateMusic();
+  });
 
   canvas.addEventListener("touchstart", onTouchStart, { passive: false });
   canvas.addEventListener("touchmove", onTouchMove, { passive: false });
@@ -808,7 +835,8 @@
     requestAnimationFrame(loop);
   }
 
-  drawMenu();
+  drawMainMenu();
+  activateMusic();
   loadLeaderboard();
   refreshUiState();
   requestAnimationFrame(loop);

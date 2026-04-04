@@ -9,23 +9,23 @@
 <body>
   <main class="app-shell leaderboard-page">
     <h1>Global Leaderboard</h1>
-    <p class="subtitle">Recent scores from all players</p>
+    <p class="subtitle">Best score per player (most recent tie-break)</p>
 
     <section class="leaderboard-page-panel">
       <div class="leaderboard-page-head">
         <button id="back-main-menu-btn" type="button">Back To Main Menu</button>
-        <button id="refresh-recent-btn" type="button">Refresh</button>
+        <button id="refresh-leaderboard-btn" type="button">Refresh</button>
       </div>
-      <p id="recent-status" class="score-status">Loading recent scores...</p>
-      <ol id="recent-list" class="leaderboard-list"></ol>
+      <p id="leaderboard-status" class="score-status">Loading leaderboard...</p>
+      <ol id="leaderboard-list" class="leaderboard-list"></ol>
     </section>
   </main>
 
   <script>
     (() => {
-      const list = document.getElementById("recent-list");
-      const status = document.getElementById("recent-status");
-      const refreshBtn = document.getElementById("refresh-recent-btn");
+      const list = document.getElementById("leaderboard-list");
+      const status = document.getElementById("leaderboard-status");
+      const refreshBtn = document.getElementById("refresh-leaderboard-btn");
       const backBtn = document.getElementById("back-main-menu-btn");
 
       function setStatus(message, isError = false) {
@@ -51,27 +51,27 @@
         });
       }
 
-      async function loadRecent() {
-        setStatus("Loading recent scores...");
+      async function loadLeaderboard() {
+        setStatus("Loading leaderboard...");
         try {
-          const res = await fetch("/api/leaderboard/recent?limit=50");
+          const res = await fetch("/api/leaderboard?limit=50", { cache: "no-store" });
           const payload = await res.json();
           if (!res.ok) {
-            throw new Error(payload.error || "Failed to load recent scores");
+            throw new Error(payload.error || "Failed to load leaderboard");
           }
           render(payload.entries || []);
-          setStatus("Showing most recent global scores.");
+          setStatus("Showing best score per player.");
         } catch (err) {
-          setStatus(`Could not load recent scores: ${err.message}`, true);
+          setStatus(`Could not load leaderboard: ${err.message}`, true);
         }
       }
 
-      refreshBtn.addEventListener("click", loadRecent);
+      refreshBtn.addEventListener("click", loadLeaderboard);
       backBtn.addEventListener("click", () => {
         window.location.href = "/";
       });
 
-      loadRecent();
+      loadLeaderboard();
     })();
   </script>
 </body>
