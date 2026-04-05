@@ -13,6 +13,19 @@
   const overlayMainMenuButton = document.getElementById("overlay-main-menu-btn");
   const viewGlobalLeaderboardButton = document.getElementById("view-global-leaderboard-btn");
   const returnMenuButton = document.getElementById("return-menu-btn");
+  const mainStartButton = document.getElementById("main-start-btn");
+  const creatorOverlay = document.getElementById("creator-overlay");
+  const creatorBackButton = document.getElementById("creator-back-btn");
+  const creatorPresetSelect = document.getElementById("creator-preset");
+  const creatorNameInput = document.getElementById("creator-name");
+  const creatorSkinInput = document.getElementById("creator-skin");
+  const creatorHairInput = document.getElementById("creator-hair");
+  const creatorOutfitInput = document.getElementById("creator-outfit");
+  const creatorTrimInput = document.getElementById("creator-trim");
+  const creatorRandomizeButton = document.getElementById("creator-randomize-btn");
+  const creatorResetButton = document.getElementById("creator-reset-btn");
+  const creatorStartButton = document.getElementById("creator-start-btn");
+  const hatOptions = Array.from(document.querySelectorAll(".hat-option"));
   const MUSIC_FILES = [
     "420.ogg",
     "After.ogg",
@@ -48,6 +61,18 @@
     { name: "Rin", skin: "#ffe7d0", hair: "#ce8138", outfit: "#77d881", trim: "#d4ffd9" },
     { name: "Yumi", skin: "#e4b898", hair: "#3a4978", outfit: "#ff8270", trim: "#ffded6" },
   ];
+  const HAT_OPTIONS = [
+    { id: "none", name: "No Accessory", fit: { wUnits: 0, hUnits: 0, offsetXUnits: 0, offsetYUnits: 0 } },
+    { id: "duck", name: "Duck Hat", src: "/assets/visuals/duck.png", image: new Image(), fit: { wUnits: 9, hUnits: 6, offsetXUnits: 0, offsetYUnits: 0 } },
+    { id: "hamburger", name: "Hamburger Hat", src: "/assets/visuals/hamburger.png?v=2", image: new Image(), fit: { wUnits: 8, hUnits: 5, offsetXUnits: 0, offsetYUnits: 0.5 } },
+  ];
+  const hatById = new Map(HAT_OPTIONS.map((hat) => [hat.id, hat]));
+  const randomPools = {
+    skin: ["#ffdacc", "#ffe5d6", "#e8c1a8", "#f7d5bf", "#ffd6b4", "#ecc7aa", "#ffe7d0", "#e4b898", "#c69276", "#8a5f47"],
+    hair: ["#5c402d", "#363258", "#382d26", "#843e2c", "#2d2d34", "#b55e89", "#ce8138", "#3a4978", "#352a63", "#142335"],
+    outfit: ["#fa749c", "#7aa2ff", "#70cd9e", "#ffab5c", "#e676f2", "#5fceda", "#77d881", "#ff8270", "#f5d95f", "#75c8ff"],
+    trim: ["#ffe8f1", "#dce8ff", "#d3ffe8", "#ffe6b4", "#f8daff", "#d3faff", "#d4ffd9", "#ffded6", "#fff6c6", "#eaf1ff"],
+  };
 
   const VEHICLE_PALETTES = [
     { body: "#df5d64", roof: "#f5a5ac" },
@@ -70,7 +95,13 @@
   const STATE_CHARACTER_SELECT = "character_select";
   const STATE_PLAY = "play";
   let state = STATE_MAIN_MENU;
-  let selected = 0;
+  let creatorPresetIndex = 0;
+  let creatorPreviewFrame = 0;
+  let creatorPreviewTick = 0;
+  let activeRunner = {
+    ...CHARACTERS[0],
+    hat: "duck",
+  };
   let world = null;
   let lastTs = performance.now();
   let pendingScore = null;
@@ -158,12 +189,136 @@
     }, 1000);
   });
 
+  function computeOpaqueBounds(image) {
+    const off = document.createElement("canvas");
+    off.width = image.naturalWidth;
+    off.height = image.naturalHeight;
+    const offCtx = off.getContext("2d", { willReadFrequently: true });
+    offCtx.drawImage(image, 0, 0);
+    const data = offCtx.getImageData(0, 0, off.width, off.height).data;
+
+    let minX = off.width;
+    let minY = off.height;
+    let maxX = -1;
+    let maxY = -1;
+
+    for (let y = 0; y < off.height; y += 1) {
+      for (let x = 0; x < off.width; x += 1) {
+        const alpha = data[(y * off.width + x) * 4 + 3];
+        if (alpha > 8) {
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+
+    if (maxX < minX || maxY < minY) {
+      return { sx: 0, sy: 0, sw: off.width, sh: off.height };
+    }
+
+    return {
+      sx: minX,
+      sy: minY,
+      sw: maxX - minX + 1,
+      sh: maxY - minY + 1,
+    };
+  }
+
+  function preloadHatImages() {
+    HAT_OPTIONS.forEach((hat) => {
+      if (!hat.src || !hat.image) return;
+      hat.image.src = hat.src;
+      hat.image.decoding = "async";
+      const syncCrop = () => {
+        hat.crop = computeOpaqueBounds(hat.image);
+      };
+      hat.image.addEventListener("load", syncCrop);
+      if (hat.image.complete && hat.image.naturalWidth > 0) syncCrop();
+    });
+  }
+
+  function setActiveHatOption(hatId) {
+    hatOptions.forEach((option) => {
+      const isActive = option.dataset.hatId === hatId;
+      option.classList.toggle("is-active", isActive);
+      option.setAttribute("aria-pressed", isActive ? "true" : "false");
+    });
+  }
+
+  function randomItem(list) {
+    return list[Math.floor(Math.random() * list.length)];
+  }
+
+  function populateCreatorPresets() {
+    if (!creatorPresetSelect) return;
+    creatorPresetSelect.innerHTML = "";
+    CHARACTERS.forEach((char, i) => {
+      const option = document.createElement("option");
+      option.value = String(i);
+      option.textContent = `${i + 1}. ${char.name}`;
+      creatorPresetSelect.appendChild(option);
+    });
+    creatorPresetSelect.value = String(creatorPresetIndex);
+  }
+
+  function writeRunnerToCreatorControls() {
+    if (creatorPresetSelect) creatorPresetSelect.value = String(creatorPresetIndex);
+    if (creatorNameInput) creatorNameInput.value = activeRunner.name;
+    if (creatorSkinInput) creatorSkinInput.value = activeRunner.skin;
+    if (creatorHairInput) creatorHairInput.value = activeRunner.hair;
+    if (creatorOutfitInput) creatorOutfitInput.value = activeRunner.outfit;
+    if (creatorTrimInput) creatorTrimInput.value = activeRunner.trim;
+    setActiveHatOption(activeRunner.hat || "none");
+  }
+
+  function syncRunnerFromCreatorControls() {
+    activeRunner.name = (creatorNameInput ? creatorNameInput.value : activeRunner.name).trim().slice(0, 24) || "Runner";
+    activeRunner.skin = creatorSkinInput ? creatorSkinInput.value : activeRunner.skin;
+    activeRunner.hair = creatorHairInput ? creatorHairInput.value : activeRunner.hair;
+    activeRunner.outfit = creatorOutfitInput ? creatorOutfitInput.value : activeRunner.outfit;
+    activeRunner.trim = creatorTrimInput ? creatorTrimInput.value : activeRunner.trim;
+  }
+
+  function applyCreatorPreset(index) {
+    creatorPresetIndex = Math.max(0, Math.min(CHARACTERS.length - 1, index));
+    const preset = CHARACTERS[creatorPresetIndex];
+    activeRunner = {
+      ...activeRunner,
+      name: preset.name,
+      skin: preset.skin,
+      hair: preset.hair,
+      outfit: preset.outfit,
+      trim: preset.trim,
+    };
+    writeRunnerToCreatorControls();
+  }
+
+  function randomizeRunner() {
+    activeRunner = {
+      ...activeRunner,
+      name: (creatorNameInput ? creatorNameInput.value : activeRunner.name).trim().slice(0, 24) || "Custom",
+      skin: randomItem(randomPools.skin),
+      hair: randomItem(randomPools.hair),
+      outfit: randomItem(randomPools.outfit),
+      trim: randomItem(randomPools.trim),
+    };
+    writeRunnerToCreatorControls();
+  }
+
   function refreshUiState() {
     if (viewGlobalLeaderboardButton) {
       viewGlobalLeaderboardButton.classList.toggle("is-hidden", state !== STATE_MAIN_MENU);
     }
     if (returnMenuButton) {
       returnMenuButton.classList.toggle("is-hidden", state !== STATE_PLAY);
+    }
+    if (mainStartButton) {
+      mainStartButton.classList.toggle("is-hidden", state !== STATE_MAIN_MENU);
+    }
+    if (creatorOverlay) {
+      creatorOverlay.classList.toggle("is-visible", state === STATE_CHARACTER_SELECT);
     }
   }
 
@@ -187,12 +342,17 @@
   function startGame() {
     activateMusic();
     hideLeaderboardOverlay();
+    writeRunnerToCreatorControls();
     state = STATE_CHARACTER_SELECT;
     refreshUiState();
+    if (creatorStartButton) creatorStartButton.focus();
   }
 
   function startRun() {
     activateMusic();
+    syncRunnerFromCreatorControls();
+    keys.clear();
+    touch.moveDir = 0;
     resetWorld();
     state = STATE_PLAY;
     refreshUiState();
@@ -321,9 +481,69 @@
     });
   }
 
+  if (mainStartButton) {
+    mainStartButton.addEventListener("click", () => {
+      startGame();
+    });
+  }
+
+  if (creatorBackButton) {
+    creatorBackButton.addEventListener("click", () => {
+      goToMenu();
+    });
+  }
+
+  if (creatorStartButton) {
+    creatorStartButton.addEventListener("click", () => {
+      startRun();
+    });
+  }
+
+  if (creatorPresetSelect) {
+    creatorPresetSelect.addEventListener("change", () => {
+      const next = Number(creatorPresetSelect.value);
+      if (!Number.isNaN(next)) applyCreatorPreset(next);
+    });
+  }
+
+  [creatorNameInput, creatorSkinInput, creatorHairInput, creatorOutfitInput, creatorTrimInput]
+    .filter(Boolean)
+    .forEach((control) => {
+      control.addEventListener("input", () => {
+        syncRunnerFromCreatorControls();
+      });
+    });
+
+  if (creatorRandomizeButton) {
+    creatorRandomizeButton.addEventListener("click", () => {
+      randomizeRunner();
+    });
+  }
+
+  if (creatorResetButton) {
+    creatorResetButton.addEventListener("click", () => {
+      applyCreatorPreset(creatorPresetIndex);
+    });
+  }
+
+  hatOptions.forEach((option) => {
+    option.addEventListener("click", () => {
+      const hatId = option.dataset.hatId;
+      if (!hatId || !hatById.has(hatId)) return;
+      activeRunner.hat = hatId;
+      setActiveHatOption(hatId);
+    });
+  });
+
   class Chibi {
-    constructor(palette) {
-      this.palette = palette;
+    constructor(config) {
+      this.palette = {
+        skin: config.skin,
+        hair: config.hair,
+        outfit: config.outfit,
+        trim: config.trim,
+      };
+      this.hatId = config.hat || "none";
       this.x = 130;
       this.y = GROUND_Y - SPRITE_H;
       this.vy = 0;
@@ -361,6 +581,7 @@
 
     draw() {
       drawChibiSprite(this.x, this.y + this.fallSink, this.palette, this.onGround ? (Math.floor(this.runPhase) % 2) : 2);
+      drawHatAccessory(this.x, this.y + this.fallSink, this.hatId, PIX);
     }
   }
 
@@ -458,7 +679,8 @@
   function resetWorld() {
     hideLeaderboardOverlay();
     world = {
-      chibi: new Chibi(CHARACTERS[selected]),
+      runnerName: activeRunner.name,
+      chibi: new Chibi(activeRunner),
       vehicles: [],
       pumpkins: [],
       pits: [],
@@ -539,7 +761,7 @@
     if (world.gameOver) return;
     world.gameOver = true;
     world.deathReason = reason;
-    queueScoreForSubmit(world.score | 0, CHARACTERS[selected].name);
+    queueScoreForSubmit(world.score | 0, world.runnerName);
   }
 
   function draw() {
@@ -562,7 +784,7 @@
     for (const p of world.pumpkins) p.draw();
 
     text(`Score: ${world.score | 0}`, 20, 34, "#22364d", 28);
-    text(`Runner: ${CHARACTERS[selected].name}`, 20, 68, "#445a7d", 24);
+    text(`Runner: ${world.runnerName}`, 20, 68, "#445a7d", 24);
     text("Move: A/D or LEFT/RIGHT", WIDTH - 300, 30, "#445a7d", 18);
     text("Jump: SPACE / W / UP", WIDTH - 300, 56, "#445a7d", 18);
 
@@ -588,39 +810,36 @@
     fillRect(panelX, panelY, panelW, panelH, "#f5faff");
     strokeRect(panelX, panelY, panelW, panelH, "#ffffff", 4);
 
-    text("Start Game", 380, 275, "#2f3d62", 46);
-    text("Press ENTER or SPACE", 338, 320, "#445a7d", 22);
-    text("Tap anywhere to continue", 335, 350, "#445a7d", 20);
+    text("Build Your Runner", 310, 275, "#2f3d62", 46);
+    text("Click Start Game button", 346, 320, "#445a7d", 22);
+    text("or press ENTER / SPACE", 356, 350, "#445a7d", 20);
   }
 
   function drawCharacterSelect() {
     drawBackground();
-    text("CHIBI CITY DASH", 220, 70, "#36466e", 56);
-    text("Character Select", 350, 110, "#4c5d84", 32);
-    text("Choose your 8-bit runner", 300, 140, "#4c5d84", 24);
+    drawCity((performance.now() * 0.03) % WIDTH);
+    creatorPreviewTick += 1;
+    if (creatorPreviewTick % 10 === 0) creatorPreviewFrame = (creatorPreviewFrame + 1) % 3;
 
-    const startX = 120;
-    const startY = 180;
-    const cardW = 180;
-    const cardH = 150;
-    const cols = 4;
+    const panelX = 360;
+    const panelY = 120;
+    const panelW = 560;
+    const panelH = 360;
+    fillRect(panelX, panelY, panelW, panelH, "#f5faffd9");
+    strokeRect(panelX, panelY, panelW, panelH, "#ffffff", 4);
 
-    CHARACTERS.forEach((char, i) => {
-      const row = Math.floor(i / cols);
-      const col = i % cols;
-      const x = startX + col * (cardW + 20);
-      const y = startY + row * (cardH + 24);
-      const selectedCard = i === selected;
+    text("Character Creator", 500, 180, "#36466e", 44);
+    text("Use panel controls to customize your runner", 410, 224, "#4c5d84", 21);
 
-      fillRect(x, y, cardW, cardH, selectedCard ? "#fff3df" : "#f5faff");
-      strokeRect(x, y, cardW, cardH, selectedCard ? "#ffc176" : "#ffffff", 4);
-      drawChibiSprite(x + 58, y + 22, char, 0, 3);
-      text(`${i + 1}. ${char.name}`, x + 38, y + 122, "#3a4258", 20);
-    });
+    const spriteScale = 6;
+    const spriteX = 620;
+    const spriteY = 250;
+    drawChibiSprite(spriteX, spriteY, activeRunner, creatorPreviewFrame, spriteScale);
+    drawHatAccessory(spriteX, spriteY, activeRunner.hat || "none", spriteScale);
 
-    text("Arrow Keys / A D to choose", 300, 500, "#445a7d", 24);
-    text("Enter or Space to start run", 304, 528, "#445a7d", 24);
-    text("Esc for main menu", 354, 54, "#445a7d", 18);
+    text(activeRunner.name, 550, 440, "#2f3d62", 34);
+    text("Click Start Run button or press ENTER / SPACE", 402, 472, "#445a7d", 20);
+    text("ESC for main menu", 592, 504, "#445a7d", 20);
   }
 
   function drawBackground() {
@@ -686,6 +905,26 @@
     px(11, 13, 1, 2, p.skin);
   }
 
+  function drawHatAccessory(spriteX, spriteY, hatId, scaleMul = PIX) {
+    if (!hatId || hatId === "none") return;
+    const hat = hatById.get(hatId);
+    if (!hat || !hat.image || !hat.image.complete || hat.image.naturalWidth === 0) return;
+
+    const fit = hat.fit || { wUnits: 9, hUnits: 5, offsetXUnits: 0, offsetYUnits: 0 };
+    const drawW = Math.max(1, Math.round(fit.wUnits * scaleMul));
+    const drawH = Math.max(1, Math.round(fit.hUnits * scaleMul));
+    const headCenterX = spriteX + 8 * scaleMul;
+    const hairTopY = spriteY + 1 * scaleMul;
+    const drawX = Math.round(headCenterX - drawW / 2 + fit.offsetXUnits * scaleMul);
+    const drawY = Math.round(hairTopY - drawH * 0.64 + fit.offsetYUnits * scaleMul);
+
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    const crop = hat.crop || { sx: 0, sy: 0, sw: hat.image.naturalWidth, sh: hat.image.naturalHeight };
+    ctx.drawImage(hat.image, crop.sx, crop.sy, crop.sw, crop.sh, drawX, drawY, drawW, drawH);
+    ctx.restore();
+  }
+
   function pressed(code) { return keys.has(code); }
 
   function hit(a, b) {
@@ -714,16 +953,19 @@
   window.addEventListener("keydown", (e) => {
     activateMusic();
     keys.add(e.code);
+    const focusInsideCreator = state === STATE_CHARACTER_SELECT
+      && creatorOverlay
+      && creatorOverlay.contains(document.activeElement);
 
     if (state === STATE_MAIN_MENU) {
       if (e.code === "Enter" || e.code === "Space") startGame();
     } else if (state === STATE_CHARACTER_SELECT) {
-      if (e.code === "ArrowRight" || e.code === "KeyD") selected = (selected + 1) % CHARACTERS.length;
-      else if (e.code === "ArrowLeft" || e.code === "KeyA") selected = (selected - 1 + CHARACTERS.length) % CHARACTERS.length;
-      else if (e.code === "ArrowUp") selected = (selected - 4 + CHARACTERS.length) % CHARACTERS.length;
-      else if (e.code === "ArrowDown") selected = (selected + 4) % CHARACTERS.length;
+      if (e.code === "Escape") goToMenu();
+      else if (focusInsideCreator) return;
+      else if (e.code === "ArrowRight" || e.code === "KeyD") applyCreatorPreset((creatorPresetIndex + 1) % CHARACTERS.length);
+      else if (e.code === "ArrowLeft" || e.code === "KeyA") applyCreatorPreset((creatorPresetIndex - 1 + CHARACTERS.length) % CHARACTERS.length);
+      else if (e.code === "KeyR") randomizeRunner();
       else if (e.code === "Enter" || e.code === "Space") startRun();
-      else if (e.code === "Escape") goToMenu();
     } else if (state === STATE_PLAY) {
       if ((e.code === "Space" || e.code === "ArrowUp" || e.code === "KeyW") && !world.gameOver) {
         world.chibi.jump();
@@ -736,7 +978,7 @@
       }
     }
 
-    if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space", "Enter"].includes(e.code)) e.preventDefault();
+    if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space", "Enter", "Escape"].includes(e.code)) e.preventDefault();
   });
 
   window.addEventListener("keyup", (e) => keys.delete(e.code));
@@ -796,17 +1038,7 @@
     if (state === STATE_MAIN_MENU) {
       if (isTap) startGame();
     } else if (state === STATE_CHARACTER_SELECT) {
-      if (absX > absY && absX > 36) {
-        selected = dx > 0
-          ? (selected + 1) % CHARACTERS.length
-          : (selected - 1 + CHARACTERS.length) % CHARACTERS.length;
-      } else if (absY >= absX && absY > 40) {
-        selected = dy > 0
-          ? (selected + 4) % CHARACTERS.length
-          : (selected - 4 + CHARACTERS.length) % CHARACTERS.length;
-      } else if (isTap) {
-        startRun();
-      }
+      if (isTap) startRun();
     } else if (state === STATE_PLAY && world.gameOver && isTap) {
       startRun();
     }
@@ -835,6 +1067,9 @@
     requestAnimationFrame(loop);
   }
 
+  preloadHatImages();
+  populateCreatorPresets();
+  applyCreatorPreset(0);
   drawMainMenu();
   activateMusic();
   loadLeaderboard();

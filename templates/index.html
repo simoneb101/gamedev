@@ -14,6 +14,60 @@
       <div class="game-wrap">
         <canvas id="game" width="960" height="540" aria-label="Chibi City Dash game"></canvas>
         <button id="return-menu-btn" class="in-game-menu-btn is-hidden" type="button">Return To Main Menu</button>
+        <button id="main-start-btn" class="main-start-btn" type="button">Start Game</button>
+        <aside id="creator-overlay" class="creator-overlay" aria-label="Character Creator">
+          <div class="overlay-head">
+            <h2>Character Creator</h2>
+            <button id="creator-back-btn" class="overlay-close" type="button" aria-label="Back to main menu">X</button>
+          </div>
+          <div class="creator-fields">
+            <div class="field">
+              <label for="creator-preset">Preset</label>
+              <select id="creator-preset"></select>
+            </div>
+            <div class="field">
+              <label for="creator-name">Character Name</label>
+              <input id="creator-name" type="text" maxlength="24" />
+            </div>
+            <div class="field color-field">
+              <label for="creator-skin">Skin</label>
+              <input id="creator-skin" type="color" />
+            </div>
+            <div class="field color-field">
+              <label for="creator-hair">Hair</label>
+              <input id="creator-hair" type="color" />
+            </div>
+            <div class="field color-field">
+              <label for="creator-outfit">Outfit</label>
+              <input id="creator-outfit" type="color" />
+            </div>
+            <div class="field color-field">
+              <label for="creator-trim">Trim</label>
+              <input id="creator-trim" type="color" />
+            </div>
+            <div class="field">
+              <label>Accessories (Hat)</label>
+              <div id="hat-picker" class="hat-picker" role="radiogroup" aria-label="Hat accessory selection">
+                <button class="hat-option" type="button" data-hat-id="none" aria-pressed="false">
+                  <span class="hat-none-label">No Accessory</span>
+                </button>
+                <button class="hat-option is-active" type="button" data-hat-id="duck" aria-pressed="true">
+                  <img src="/assets/visuals/duck.png" alt="Duck hat option" />
+                  <span>Duck Hat</span>
+                </button>
+                <button class="hat-option" type="button" data-hat-id="hamburger" aria-pressed="false">
+                  <img src="/assets/visuals/hamburger.png?v=2" alt="Hamburger hat option" />
+                  <span>Hamburger Hat</span>
+                </button>
+              </div>
+            </div>
+            <div class="creator-actions">
+              <button id="creator-randomize-btn" type="button">Randomize</button>
+              <button id="creator-reset-btn" type="button">Reset Preset</button>
+              <button id="creator-start-btn" type="button">Start Run</button>
+            </div>
+          </div>
+        </aside>
         <aside id="leaderboard-overlay" class="leaderboard-overlay" aria-label="Leaderboard">
           <div class="overlay-head">
             <h2>Leaderboard</h2>
@@ -39,7 +93,7 @@
       <div class="menu-actions">
         <button id="view-global-leaderboard-btn" type="button">View Global Leaderboard</button>
       </div>
-      <p class="help">Main Menu: Enter / Space or tap to open character select | Character Select: Arrow Keys / A D + Enter, or swipe to choose + tap to start | Play: Arrow Keys / A D to move + Space / W / Up to jump, or swipe left/right to move + swipe up to jump</p>
+      <p class="help">Main Menu: Click Start Game or press Enter/Space | Creator: Mouse controls + Start Run button, or Enter/Space to start and Esc to return | Play: Arrow Keys / A D to move + Space / W / Up to jump, or swipe left/right to move + swipe up to jump</p>
     </section>
   </main>
   <script src="{{ url_for('static', filename='game.js') }}"></script>
